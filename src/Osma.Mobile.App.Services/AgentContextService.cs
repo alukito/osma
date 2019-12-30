@@ -1,9 +1,10 @@
 ﻿using System;
 using System.IO;
 using System.Threading.Tasks;
-using AgentFramework.Core.Contracts;
-using AgentFramework.Core.Handlers.Agents;
-using AgentFramework.Core.Models.Wallets;
+using Hyperledger.Aries.Agents;
+using Hyperledger.Aries.Configuration;
+using Hyperledger.Aries.Contracts;
+using Hyperledger.Aries.Storage;
 using Hyperledger.Indy.WalletApi;
 using Osma.Mobile.App.Services.Interfaces;
 using Osma.Mobile.App.Services.Models;
@@ -19,7 +20,7 @@ namespace Osma.Mobile.App.Services
 
         private const string AgentOptionsKey = "AgentOptions";
 
-        private AgentOptions _options;
+        private Models.AgentOptions _options;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="T:Osma.Mobile.App.Services.AgentContextProvider" /> class.
@@ -39,21 +40,21 @@ namespace Osma.Mobile.App.Services
             _keyValueStoreService = keyValueStoreService;
 
             if (_keyValueStoreService.KeyExists(AgentOptionsKey))
-                _options = _keyValueStoreService.GetData<AgentOptions>(AgentOptionsKey);
+                _options = _keyValueStoreService.GetData<Models.AgentOptions>(AgentOptionsKey);
         }
         
-        public async Task<bool> CreateAgentAsync(AgentOptions options)
+        public async Task<bool> CreateAgentAsync(Models.AgentOptions options)
         {
 #if __ANDROID__
             WalletConfiguration.WalletStorageConfiguration _storage = new WalletConfiguration.WalletStorageConfiguration { Path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".indy_client") };
             options.WalletOptions.WalletConfiguration.StorageConfiguration = _storage;
 #endif
-            await _provisioningService.ProvisionAgentAsync(new BasicProvisioningConfiguration
+            await _provisioningService.ProvisionAgentAsync(new Hyperledger.Aries.Configuration.AgentOptions
             {
                 WalletConfiguration = options.WalletOptions.WalletConfiguration,
                 WalletCredentials = options.WalletOptions.WalletCredentials,
-                AgentSeed = options.Seed,
-                EndpointUri = options.EndpointUri != null ? new Uri($"{options.EndpointUri}") : null
+                AgentKeySeed = options.Seed,
+                EndpointUri = options.EndpointUri
             });
 
             await _keyValueStoreService.SetDataAsync(AgentOptionsKey, options);

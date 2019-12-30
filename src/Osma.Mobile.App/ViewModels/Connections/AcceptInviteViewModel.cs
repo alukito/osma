@@ -3,9 +3,12 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Acr.UserDialogs;
-using AgentFramework.Core.Contracts;
-using AgentFramework.Core.Messages.Connections;
-using AgentFramework.Core.Exceptions;
+using Hyperledger.Aries;
+using Hyperledger.Aries.Agents;
+using Hyperledger.Aries.Configuration;
+using Hyperledger.Aries.Contracts;
+using Hyperledger.Aries.Features.DidExchange;
+using Hyperledger.Indy.WalletApi;
 using Osma.Mobile.App.Events;
 using Osma.Mobile.App.Services.Interfaces;
 using ReactiveUI;
@@ -57,11 +60,29 @@ namespace Osma.Mobile.App.ViewModels.Connections
         {
             var provisioningRecord = await _provisioningService.GetProvisioningAsync(context.Wallet);
             var isEndpointUriAbsent = provisioningRecord.Endpoint.Uri == null;
-            var (msg, rec) = await _connectionService.CreateRequestAsync(context, _invite);
-            var rsp = await _messageService.SendAsync(context.Wallet, msg, rec, _invite.RecipientKeys.First(), isEndpointUriAbsent);
+            var (msg, connection) = await _connectionService.CreateRequestAsync(context, invite);
+            msg.Label = msg.Label == null ? "OsmaAgent" : msg.Label; 
+
+            var recipientKey = invite.RecipientKeys.First()
+                                ?? connection.TheirVk
+                                ?? throw new AriesFrameworkException(
+                                    ErrorCode.A2AMessageTransmissionError, "Cannot find encryption key");
+
+            var routingKeys = connection.Endpoint?.Verkey != null ? new[] { connection.Endpoint.Verkey } : new string[0];
+
+            if (connection.Endpoint?.Uri == null)
+                throw new AriesFrameworkException(ErrorCode.A2AMessageTransmissionError, "Cannot send to connection that does not have endpoint information specified");
+
+
             if (isEndpointUriAbsent)
             {
-                await _connectionService.ProcessResponseAsync(context, rsp.GetMessage<ConnectionResponseMessage>(), rec);
+                var rsp = await _messageService.SendReceiveAsync(context.Wallet, msg, recipientKey, connection.Endpoint.Uri, routingKeys, connection.MyVk);
+                var unpackedRsp = (UnpackedMessageContext)rsp;
+
+                await _connectionService.ProcessResponseAsync(context, unpackedRsp.GetMessage<ConnectionResponseMessage>(), connection);
+            } else
+            {
+                await _messageService.SendAsync(context.Wallet, msg, recipientKey, connection.Endpoint.Uri, routingKeys, connection.MyVk);
             }
         }
 
@@ -84,7 +105,7 @@ namespace Osma.Mobile.App.ViewModels.Connections
             {
                 await CreateConnection(context, _invite);
             }
-            catch (AgentFrameworkException agentFrameworkException)
+            catch (AriesFrameworkException agentFrameworkException)
             {
                 errorMessage = agentFrameworkException.Message;
             }

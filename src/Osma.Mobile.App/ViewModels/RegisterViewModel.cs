@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Windows.Input;
 using Acr.UserDialogs;
-using AgentFramework.Core.Models.Wallets;
+using Hyperledger.Aries.Storage;
 using Osma.Mobile.App.Services.Interfaces;
 using Osma.Mobile.App.Services.Models;
 using Xamarin.Forms;

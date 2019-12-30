@@ -6,8 +6,10 @@ using Android.App;
 using Android.Content.PM;
 using Android.OS;
 using Autofac;
+using Autofac.Extensions.DependencyInjection;
 using FFImageLoading.Forms.Platform;
 using Java.Lang;
+using Microsoft.Extensions.DependencyInjection;
 using Osma.Mobile.App.Converters;
 using Xamarin.Forms;
 
@@ -54,8 +56,20 @@ namespace Osma.Mobile.App.Droid
             if ((int)Build.VERSION.SdkInt >= 23)
                 CheckAndRequestRequiredPermissions();
 
-            var builder = new ContainerBuilder();
+
+            var services = new ServiceCollection(); //Create a service collection
+            services.AddHttpClient(); //invoke add http client extension
+            services.AddOptions();
+
+            //...add other services as needed
+
+            //use autofac integration `Autofac.Extensions.DependencyInjection` 
+            var providerFactory = new AutofacServiceProviderFactory();
+          
+            //OR Container
+            ContainerBuilder builder = providerFactory.CreateBuilder(services);
             builder.RegisterModule(new PlatformModule());
+
             var container = builder.Build();
 
             LoadApplication(new App(container));
